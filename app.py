@@ -7,6 +7,7 @@ import os
 import json
 import jinja2
 from flask import render_template, request, make_response
+from flask_sqlalchemy import SQLAlchemy
 from slackeventsapi import SlackEventAdapter
 
 from bot import Bot, SupException
@@ -16,6 +17,7 @@ client_id = os.environ["CLIENT_ID"]
 client_secret = os.environ["CLIENT_SECRET"]
 signing_secret = os.environ["SIGNING_SECRET"]
 cache_path = os.environ.get('AUTH_CACHE_PATH')
+db_url = os.environ['SQLALCHEMY_DB_URI']
 
 bot_args = {
     'client_id': client_id,
@@ -27,17 +29,26 @@ if cache_path and os.path.isfile(cache_path):
 supbot = Bot(**bot_args)
 
 events_adapter = SlackEventAdapter(signing_secret, endpoint="/slack")
+flaskapp = events_adapter.server
 template_loader = jinja2.ChoiceLoader([
-                    events_adapter.server.jinja_loader,
+                    flaskapp.jinja_loader,
                     jinja2.FileSystemLoader(['templates']),
                   ])
-events_adapter.server.jinja_loader = template_loader
+flaskapp.jinja_loader = template_loader
 
-logger = events_adapter.server.logger
+flaskapp.config['SQLALCHEMY_DATABASE_URI'] = db_url
+db = SQLAlchemy(flaskapp)
+
+logger = flaskapp.logger
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(120), unique=True, nullable=False)
 
 
 # We can add an installation page route to the event adapter's server
-@events_adapter.server.route("/install", methods=["GET"])
+@flaskapp.route("/install", methods=["GET"])
 def before_install():
     """
     This route renders an installation page for our app!
@@ -45,15 +56,13 @@ def before_install():
     return render_template("install.html", client_id=supbot.client_id)
 
 
-@events_adapter.server.route("/thanks", methods=["GET"])
+@flaskapp.route("/thanks", methods=["GET"])
 def thanks():
     """
     This route renders a page to thank users for installing our app!
     """
     auth_code = request.args.get('code')
 
-    # Now that we have a classy new Bot Class, let's build and use an auth
-    # method for authentication.
     try:
         supbot.auth(auth_code)
         error = None
@@ -79,7 +88,7 @@ def handle_message(event_data):
 
 
 # Here's some helpful debugging hints for checking that env vars are set
-@events_adapter.server.before_first_request
+@flaskapp.before_first_request
 def before_first_request():
     if not supbot.client_id:
         logger.debug(
@@ -106,7 +115,7 @@ def action_handler(action_value):
     return f"No handler found for '{action_value}' answer."
 
 
-@events_adapter.server.route("/after_button", methods=["GET", "POST"])
+@flaskapp.route("/after_button", methods=["GET", "POST"])
 def respond():
     """
     This route listens for incoming message button actions from Slack.
@@ -116,6 +125,11 @@ def respond():
     action_value = slack_payload["actions"][0]["value"]
     # handle the action
     return action_handler(action_value)
+
+
+@flaskapp.route('/hello')
+def hello():
+    return 'hello, world!'
 
 
 if __name__ == '__main__':
