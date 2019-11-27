@@ -9,6 +9,7 @@ from bot import SupException
 
 from core import db, flaskapp, supbot, logger, events_adapter, port
 
+COMMAND_PREFIX='sup '
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -21,7 +22,11 @@ def before_install():
     """
     This route renders an installation page for our app!
     """
-    return render_template("install.html", client_id=supbot.client_id)
+    return render_template(
+        "install.html",
+        scopes=supbot.scopes,
+        client_id=supbot.client_id,
+    )
 
 
 @flaskapp.route("/thanks", methods=["GET"])
@@ -55,6 +60,15 @@ def handle_message(event_data):
         except SupException as exc:
             logger.error(f"{exc}")
 
+    if message['text'].startswith(COMMAND_PREFIX):
+        command = message['text'][len(COMMAND_PREFIX):]
+
+        logger.info(f"Sup command received: {command}")
+
+        if command.startswith('report'):
+            supbot.report_today(message, command.split())
+
+
 
 # Here's some helpful debugging hints for checking that env vars are set
 @flaskapp.before_first_request
@@ -73,4 +87,4 @@ def hello():
 
 
 if __name__ == '__main__':
-    events_adapter.start(debug=True, port=port)
+    flaskapp.run(debug=True, port=port)
