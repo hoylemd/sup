@@ -68,83 +68,14 @@ class Bot:
 
         text = f"Sup, <@{message['user']}>."
 
-        attachments = [
-            {
-                'pretext': 'will u b mi frend?',
-                'text': 'yus/no/mebbe',
-                'callback_id': 'frend',
-                'color': '#00CC00',
-                'attachment_type': 'default',
-                'actions': [{
-                        'name': 'yes',
-                        'text': 'yus :party_pikachu:',
-                        'type': 'button',
-                        'value': 'yes'
-                    }, {
-                        'name': 'no',
-                        'text': 'no :sad_parrot:',
-                        'type': 'button',
-                        'value': 'no'
-                    }, {
-                        'name': 'maybe',
-                        'text': 'mebbe :shifty:',
-                        'type': 'button',
-                        'value': 'maybe'
-                    }
-                ]
-            }
-        ]
-
         response = self.client.chat_postMessage(
             channel=channel,
             text=text,
-            attachments=attachments
         )
         if not response['ok']:
             raise SayHelloException(response['error'])
 
         return response
-
-    def yes_frend(self):
-        img_url = (
-            'https://www.rover.com/blog/wp-content/uploads/2019/05/heck.png'
-        )
-        return {
-            'as_user': False,
-            'replace_original': False,
-            'response_type': 'ephemeral',
-            'text': 'HOORAY I LUFF U',
-            'attachments': [
-                {'image_url': img_url, 'attachment_type': 'default'}
-            ]
-        }
-
-    def no_frend(self):
-        img_url = (
-            'https://vetstreet.brightspotcdn.com/ad/e9/'
-            '8522224b4d0eb9b8f372726d4725/basset-hound.jpg'
-        )
-        return {
-            'as_user': False,
-            'replace_original': False,
-            'response_type': 'ephemeral',
-            'text': 'o noooo y not :c',
-            'attachments': [
-                {'image_url': img_url, 'attachment_type': 'default'}
-            ]
-        }
-
-    def maybe_frend(self):
-        img_url = 'https://i.imgur.com/vFKjdJY.jpg?1'
-        return {
-            'as_user': False,
-            'replace_original': False,
-            'response_type': 'ephemeral',
-            'text': 'Ohhh u b playin coy :p',
-            'attachments': [
-                {'image_url': img_url, 'attachment_type': 'default'}
-            ]
-        }
 
 
 class SupException(BaseException):

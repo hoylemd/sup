@@ -3,43 +3,11 @@
 In this file, we'll create a routing layer to handle incoming and outgoing
 requests between our bot and Slack.
 """
-import os
-import json
-import jinja2
-from flask import render_template, request, make_response
-from flask_sqlalchemy import SQLAlchemy
-from slackeventsapi import SlackEventAdapter
+from flask import render_template, request
 
-from bot import Bot, SupException
+from bot import SupException
 
-port = int(os.environ.get('PORT', '5000'))
-client_id = os.environ["CLIENT_ID"]
-client_secret = os.environ["CLIENT_SECRET"]
-signing_secret = os.environ["SIGNING_SECRET"]
-cache_path = os.environ.get('AUTH_CACHE_PATH')
-db_url = os.environ['SQLALCHEMY_DB_URI']
-
-bot_args = {
-    'client_id': client_id,
-    'client_secret': client_secret,
-}
-if cache_path and os.path.isfile(cache_path):
-    bot_args['cache_path'] = cache_path
-
-supbot = Bot(**bot_args)
-
-events_adapter = SlackEventAdapter(signing_secret, endpoint="/slack")
-flaskapp = events_adapter.server
-template_loader = jinja2.ChoiceLoader([
-                    flaskapp.jinja_loader,
-                    jinja2.FileSystemLoader(['templates']),
-                  ])
-flaskapp.jinja_loader = template_loader
-
-flaskapp.config['SQLALCHEMY_DATABASE_URI'] = db_url
-db = SQLAlchemy(flaskapp)
-
-logger = flaskapp.logger
+from core import db, flaskapp, supbot, logger, events_adapter, port
 
 
 class User(db.Model):
@@ -80,6 +48,7 @@ def handle_message(event_data):
     """
     message = event_data['event']
 
+    logger.info(f"message received from channel {message['channel']}")
     if 'hello' in message['text']:
         try:
             supbot.say_hello(message)
@@ -96,35 +65,6 @@ def before_first_request():
     if not supbot.client_secret:
         logger.debug(
             "Can't find Client Secret, did you set this env variable?")
-
-
-def ok_response(message):
-    return make_response(json.dumps(message), 200,
-                         {'Content-Type': 'application/json'})
-
-
-@events_adapter.on('action')
-def action_handler(action_value):
-    if action_value == 'yes':
-        return ok_response(supbot.yes_frend())
-    if action_value == 'no':
-        return ok_response(supbot.no_frend())
-    if action_value == 'maybe':
-        return ok_response(supbot.maybe_frend())
-
-    return f"No handler found for '{action_value}' answer."
-
-
-@flaskapp.route("/after_button", methods=["GET", "POST"])
-def respond():
-    """
-    This route listens for incoming message button actions from Slack.
-    """
-    slack_payload = json.loads(request.form["payload"])
-    # get the value of the button press
-    action_value = slack_payload["actions"][0]["value"]
-    # handle the action
-    return action_handler(action_value)
 
 
 @flaskapp.route('/hello')
