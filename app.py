@@ -9,7 +9,6 @@ from bot import SupException
 
 from core import db, flaskapp, supbot, logger, events_adapter, port
 
-COMMAND_PREFIX='sup '
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -54,20 +53,23 @@ def handle_message(event_data):
     message = event_data['event']
 
     logger.info(f"message received from channel {message['channel']}")
-    if 'hello' in message['text']:
+    text = message.get('text', None)
+    if text is None:
+        return
+
+    if 'hello' in text:
         try:
             supbot.say_hello(message)
         except SupException as exc:
             logger.error(f"{exc}")
 
-    if message['text'].startswith(COMMAND_PREFIX):
-        command = message['text'][len(COMMAND_PREFIX):]
+    if message['text'].startswith(supbot.command_prefix):
+        command = message['text'][len(supbot.command_prefix):]
 
         logger.info(f"Sup command received: {command}")
 
         if command.startswith('report'):
             supbot.report_today(message, command.split())
-
 
 
 # Here's some helpful debugging hints for checking that env vars are set

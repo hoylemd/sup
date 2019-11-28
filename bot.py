@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from slack import WebClient
 
 DEFAULT_CACHE_PATH = 'auth_cache.json'
+DEFAULT_COMMAND_PREFIX = 'sup '
 
 
 @dataclass
@@ -25,6 +26,7 @@ class Bot:
     client: object = None
 
     cache_path: str = DEFAULT_CACHE_PATH
+    command_prefix: str = DEFAULT_COMMAND_PREFIX
     logger: object = None
 
     """ Instanciates a Bot object to handle Slack interactions."""
@@ -102,14 +104,18 @@ class Bot:
 
         reports = {}
 
-        self.logger.info(f"reporting on {len(messages)} messages between {oldest} and {latest}")
         for message in reversed(messages):
             # skip messages that aren't from real users
             user_id = message.get('user', None)
             if user_id is None:
                 continue
+
+            # skip sup commands
+            if message['text'].startswith(self.command_prefix):
+                continue
+
             user_report = reports.setdefault(user_id, [])
-            user_report.append(f"{message['ts']}:\n {message['type']}: {message['text']}")
+            user_report.append(f"{message['text']}")
 
         for user_id, report in reports.items():
             blurb = '\n'.join(report)
